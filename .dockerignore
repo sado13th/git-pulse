@@ -1,0 +1,13 @@
+.git
+.gitignore
+*.md
+docker/
+.env*
+.vscode/
+.cursor/
+.idea/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
