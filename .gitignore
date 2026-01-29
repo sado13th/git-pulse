@@ -1,34 +1,23 @@
-# IDE
-.idea/
-*.swp
-*.swo
-*~
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-.venv/
-venv/
-.env
+backend/.venv/
+
+# Node
+node_modules/
 dist/
-build/
-*.egg-info/
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.coverage
-htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Database
+*.db
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
