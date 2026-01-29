@@ -1,6 +1,6 @@
 """프로젝트 API 라우터."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -11,6 +11,8 @@ from ..schemas import (
     ProjectStats,
     ConfigResponse,
     DailyStats,
+    Contributor,
+    FilterMode,
 )
 from ..git_analyzer import (
     get_git_user_name,
@@ -83,7 +85,11 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/projects/{project_id}/stats", response_model=ProjectStats)
-def get_project_stats(project_id: int, db: Session = Depends(get_db)):
+def get_project_stats(
+    project_id: int,
+    filter: FilterMode = Query(FilterMode.ME, description="필터 모드 (me: 내 커밋, all: 전체)"),
+    db: Session = Depends(get_db),
+):
     """프로젝트 통계 조회."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -99,13 +105,17 @@ def get_project_stats(project_id: int, db: Session = Depends(get_db)):
             detail="Git 저장소에 접근할 수 없습니다.",
         )
 
-    stats = analyze_repository(project.path, days=7)
+    # 필터 모드에 따라 사용자 필터링
+    filter_user = get_git_user_name() if filter == FilterMode.ME else None
+    stats = analyze_repository(project.path, days=7, filter_user=filter_user)
 
     return ProjectStats(
         project_id=project_id,
         period_days=stats["period_days"],
+        filter_mode=filter,
         total_commits=stats["total_commits"],
         additions=stats["additions"],
         deletions=stats["deletions"],
         daily_stats=[DailyStats(**d) for d in stats["daily_stats"]],
+        contributors=[Contributor(**c) for c in stats["contributors"]],
     )

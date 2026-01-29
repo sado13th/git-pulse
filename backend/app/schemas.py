@@ -1,7 +1,15 @@
 """Pydantic 스키마 정의."""
 
 from datetime import datetime
+from enum import Enum
 from pydantic import BaseModel, Field
+
+
+class FilterMode(str, Enum):
+    """필터 모드."""
+
+    ME = "me"
+    ALL = "all"
 
 
 class ProjectCreate(BaseModel):
@@ -33,15 +41,27 @@ class DailyStats(BaseModel):
     deletions: int
 
 
+class Contributor(BaseModel):
+    """기여자 통계."""
+
+    name: str
+    commits: int
+    additions: int
+    deletions: int
+    percentage: float
+
+
 class ProjectStats(BaseModel):
     """프로젝트 통계 응답."""
 
     project_id: int
     period_days: int
+    filter_mode: FilterMode
     total_commits: int
     additions: int
     deletions: int
     daily_stats: list[DailyStats]
+    contributors: list[Contributor]
 
 
 class ConfigResponse(BaseModel):

@@ -34,19 +34,21 @@ def validate_git_repository(path: str) -> bool:
         return False
 
 
-def analyze_repository(path: str, days: int = 7) -> dict:
+def analyze_repository(
+    path: str, days: int = 7, filter_user: str | None = None
+) -> dict:
     """
     Git 저장소 분석.
 
     Args:
         path: Git 저장소 경로
         days: 분석할 기간 (일)
+        filter_user: 필터링할 사용자 이름 (None이면 전체)
 
     Returns:
         분석 결과 딕셔너리
     """
     repo = Repo(path)
-    user_name = get_git_user_name()
 
     # 기간 설정
     since_date = datetime.now() - timedelta(days=days)
@@ -61,6 +63,9 @@ def analyze_repository(path: str, days: int = 7) -> dict:
     total_additions = 0
     total_deletions = 0
 
+    # 기여자별 통계
+    contributors_stats: dict[str, dict] = {}
+
     # 커밋 순회
     try:
         for commit in repo.iter_commits():
@@ -70,16 +75,27 @@ def analyze_repository(path: str, days: int = 7) -> dict:
             if commit_date < since_date:
                 break
 
-            # 사용자 필터 (user_name이 없으면 모든 커밋 포함)
-            if user_name and commit.author.name != user_name:
+            author_name = commit.author.name
+
+            # 사용자 필터 (filter_user가 지정된 경우에만 필터링)
+            if filter_user and author_name != filter_user:
                 continue
 
             date_str = commit_date.strftime("%Y-%m-%d")
             if date_str not in daily_stats:
                 continue
 
+            # 기여자 통계 초기화
+            if author_name not in contributors_stats:
+                contributors_stats[author_name] = {
+                    "commits": 0,
+                    "additions": 0,
+                    "deletions": 0,
+                }
+
             # 커밋 통계
             daily_stats[date_str]["commits"] += 1
+            contributors_stats[author_name]["commits"] += 1
             total_commits += 1
 
             # 코드 변경량 (첫 번째 커밋이 아닌 경우)
@@ -87,6 +103,9 @@ def analyze_repository(path: str, days: int = 7) -> dict:
                 try:
                     diff = commit.parents[0].diff(commit)
                     for d in diff:
+                        additions = 0
+                        deletions = 0
+
                         if d.a_blob and d.b_blob:
                             try:
                                 a_lines = (
@@ -101,46 +120,58 @@ def analyze_repository(path: str, days: int = 7) -> dict:
                                 )
                                 if b_lines > a_lines:
                                     additions = b_lines - a_lines
-                                    daily_stats[date_str]["additions"] += additions
-                                    total_additions += additions
                                 else:
                                     deletions = a_lines - b_lines
-                                    daily_stats[date_str]["deletions"] += deletions
-                                    total_deletions += deletions
                             except (UnicodeDecodeError, ValueError):
-                                # 바이너리 파일 무시
                                 pass
                         elif d.new_file and d.b_blob:
                             try:
-                                lines = len(
+                                additions = len(
                                     d.b_blob.data_stream.read().decode().splitlines()
                                 )
-                                daily_stats[date_str]["additions"] += lines
-                                total_additions += lines
                             except (UnicodeDecodeError, ValueError):
                                 pass
                         elif d.deleted_file and d.a_blob:
                             try:
-                                lines = len(
+                                deletions = len(
                                     d.a_blob.data_stream.read().decode().splitlines()
                                 )
-                                daily_stats[date_str]["deletions"] += lines
-                                total_deletions += lines
                             except (UnicodeDecodeError, ValueError):
                                 pass
+
+                        daily_stats[date_str]["additions"] += additions
+                        daily_stats[date_str]["deletions"] += deletions
+                        contributors_stats[author_name]["additions"] += additions
+                        contributors_stats[author_name]["deletions"] += deletions
+                        total_additions += additions
+                        total_deletions += deletions
+
                 except Exception:
-                    # diff 계산 실패 시 무시
                     pass
 
     except Exception:
-        # 커밋이 없는 경우
         pass
 
     # 일별 통계를 리스트로 변환 (날짜 오름차순)
     daily_list = [
-        {"date": date, **stats}
-        for date, stats in sorted(daily_stats.items())
+        {"date": date, **stats} for date, stats in sorted(daily_stats.items())
     ]
+
+    # 기여자 통계를 리스트로 변환 (커밋 수 내림차순)
+    contributors_list = []
+    for name, stats in sorted(
+        contributors_stats.items(), key=lambda x: x[1]["commits"], reverse=True
+    ):
+        percentage = (stats["commits"] / total_commits * 100) if total_commits > 0 else 0
+        contributors_list.append(
+            {
+                "name": name,
+                "commits": stats["commits"],
+                "additions": stats["additions"],
+                "deletions": stats["deletions"],
+                "percentage": round(percentage, 1),
+            }
+        )
 
     return {
         "period_days": days,
@@ -148,4 +179,5 @@ def analyze_repository(path: str, days: int = 7) -> dict:
         "additions": total_additions,
         "deletions": total_deletions,
         "daily_stats": daily_list,
+        "contributors": contributors_list,
     }
