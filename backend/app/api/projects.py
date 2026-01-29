@@ -87,7 +87,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 @router.get("/projects/{project_id}/stats", response_model=ProjectStats)
 def get_project_stats(
     project_id: int,
-    filter: FilterMode = Query(FilterMode.ME, description="필터 모드 (me: 내 커밋, all: 전체)"),
+    filter: FilterMode = Query(FilterMode.ALL, description="필터 모드 (me: 내 커밋, all: 전체)"),
     db: Session = Depends(get_db),
 ):
     """프로젝트 통계 조회."""

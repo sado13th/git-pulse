@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   // 단일 프로젝트 통계 로드
-  const loadProjectStats = useCallback(async (projectId, filter = 'me') => {
+  const loadProjectStats = useCallback(async (projectId, filter = 'all') => {
     try {
       const stats = await getProjectStats(projectId, filter);
       setProjectStats((prev) => ({ ...prev, [projectId]: stats }));
@@ -46,7 +46,7 @@ export default function Dashboard() {
 
       // 각 프로젝트별 통계 로드 (기존 필터 유지)
       const statsPromises = projectsData.map((p) => {
-        const filter = projectFilters[p.id] || 'me';
+        const filter = projectFilters[p.id] || 'all';
         return getProjectStats(p.id, filter).catch(() => null);
       });
       const statsResults = await Promise.all(statsPromises);
@@ -57,9 +57,9 @@ export default function Dashboard() {
         if (statsResults[idx]) {
           statsMap[p.id] = statsResults[idx];
         }
-        // 새 프로젝트는 기본 필터 'me'
+        // 새 프로젝트는 기본 필터 'all'
         if (!filtersMap[p.id]) {
-          filtersMap[p.id] = 'me';
+          filtersMap[p.id] = 'all';
         }
       });
       setProjectStats(statsMap);
@@ -118,19 +118,13 @@ export default function Dashboard() {
     await loadData();
   };
 
-  // 전체 통계 (내 커밋 기준으로 필터링된 프로젝트만)
-  const totalStats = Object.entries(projectStats).reduce(
-    (acc, [projectId, stats]) => {
-      // 내 커밋 모드인 프로젝트만 합산
-      if (projectFilters[projectId] === 'me') {
-        return {
-          commits: acc.commits + (stats?.total_commits || 0),
-          additions: acc.additions + (stats?.additions || 0),
-          deletions: acc.deletions + (stats?.deletions || 0),
-        };
-      }
-      return acc;
-    },
+  // 전체 통계 (모든 프로젝트의 전체 커밋 합산)
+  const totalStats = Object.values(projectStats).reduce(
+    (acc, stats) => ({
+      commits: acc.commits + (stats?.total_commits || 0),
+      additions: acc.additions + (stats?.additions || 0),
+      deletions: acc.deletions + (stats?.deletions || 0),
+    }),
     { commits: 0, additions: 0, deletions: 0 }
   );
 
@@ -200,7 +194,7 @@ export default function Dashboard() {
             {/* 전체 요약 */}
             <div className="bg-white rounded-lg shadow p-6 mb-8">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">최근 7일 요약 (내 커밋)</h2>
+                <h2 className="text-lg font-semibold text-gray-900">최근 7일 요약</h2>
                 {lastUpdated && (
                   <span className="text-xs text-gray-400">
                     업데이트: {formatLastUpdated()} (5분마다 자동 갱신)
@@ -243,7 +237,7 @@ export default function Dashboard() {
                     key={project.id}
                     project={project}
                     stats={projectStats[project.id]}
-                    filter={projectFilters[project.id] || 'me'}
+                    filter={projectFilters[project.id] || 'all'}
                     onFilterChange={handleFilterChange}
                     onDelete={handleDeleteProject}
                   />

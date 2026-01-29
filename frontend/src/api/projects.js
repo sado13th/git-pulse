@@ -23,7 +23,7 @@ export async function deleteProject(id) {
   await api.delete(`/projects/${id}`);
 }
 
-export async function getProjectStats(id, filter = 'me') {
+export async function getProjectStats(id, filter = 'all') {
   const { data } = await api.get(`/projects/${id}/stats`, {
     params: { filter },
   });
